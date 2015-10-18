@@ -234,8 +234,10 @@ function plugin(options, imports, register) {
     api.get("/api.json", {name: "api"}, frontdoor.middleware.describeApi(api));
 
     api.authenticate = api.authenticate || function() {
-        return function(req, res, next) {
-            var token = req.params.sessionId || req.params.access_token;
+        return function(req, response, next) {
+            console.log(req.cookies);
+            var token = req.params.sessionId || req.params.access_token || req.cookies.sessionId;
+            console.log('token ' + token);
             var config = options.options;
             var url = config.apiUrl + "/user-details?" +
                     "projectId=" + config.extendOptions.project.id;
@@ -247,29 +249,68 @@ function plugin(options, imports, register) {
                     body += chunk.toString();
                 });
                 res.on("end", function() {
-                    try {
-                        var details = JSON.parse(body);
-                    } catch (e) {
-                        return showError(e.message);
+                    console.log(res.statusCode);
+                    console.log(body);
+                    if (res.statusCode == 404) {
+                        try {
+                            var details = JSON.parse(body);
+                        } catch (e) {
+                            return showError(e.message);
+                        }
+                        if (details.message == 'No such project') {
+                            showError(
+                                'Specified project does not exist. Probably, the url is wrong. ' +
+                                    'If you are sure it is correct, please, send us a message.'
+                            );
+                        } else {
+                            showError('We got an error: ' + body);
+                        }
+                    } else if (res.statusCode < 200 || res.statusCode >= 300) {
+                        console.log(res);
+                        showError('We got an error: ' + body);
+                    } else {
+                        try {
+                            details = JSON.parse(body);
+                        } catch (e) {
+                            return showError(e.message);
+                        }
+                        req.user = {
+                            id: details.id,
+                            name: details.name,
+                            email: details.email,
+                            fullname: details.fullname,
+                            readonly: details.readonly,
+                            token: details.token
+                        };
+                        if (req.cookies.sessionId != details.token) {
+                            response.setHeader(
+                                'Set-Cookie',
+                                'sessionId=' +
+                                    details.token + '; path=/; domain=' + base(req.headers.host)
+                            );
+                        }
+                        next();
                     }
-                    req.user = {
-                        id: details.id,
-                        name: details.name,
-                        email: details.email,
-                        fullname: details.fullname,
-                        readonly: details.readonly,
-                        token: details.token
-                    };
-                    next();
                 });
+
+                function base(host) {
+                    // ip address
+                    var match = /(^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})(:\d+)?$/.exec(host);
+                    if (match) return match[1];
+                    else {
+                        // domain name like someide.ether.camp:8080
+                        match = /(\.[\w\-]+\.[\w\-]+)(:\d+)?$/.exec(host);
+                        return match ? match[1] : host;
+                    }
+                }
             }).on("error", function(e) {
                 showError(e.message);
             });
 
             function showError(err) {
                 console.error(err);
-                res.writeHead(500);
-                res.end(err);
+                response.writeHead(500);
+                response.end(err);
             }
         };
     };
