@@ -235,9 +235,7 @@ function plugin(options, imports, register) {
 
     api.authenticate = api.authenticate || function() {
         return function(req, response, next) {
-            console.log(req.cookies);
             var token = req.params.sessionId || req.params.access_token || req.cookies.sessionId;
-            console.log('token ' + token);
             var config = options.options;
             var url = config.apiUrl + "/user-details?" +
                     "projectId=" + config.extendOptions.project.id;
@@ -249,8 +247,6 @@ function plugin(options, imports, register) {
                     body += chunk.toString();
                 });
                 res.on("end", function() {
-                    console.log(res.statusCode);
-                    console.log(body);
                     if (res.statusCode == 404) {
                         try {
                             var details = JSON.parse(body);
@@ -266,7 +262,6 @@ function plugin(options, imports, register) {
                             showError('We got an error: ' + body);
                         }
                     } else if (res.statusCode < 200 || res.statusCode >= 300) {
-                        console.log(res);
                         showError('We got an error: ' + body);
                     } else {
                         try {
@@ -295,7 +290,7 @@ function plugin(options, imports, register) {
 
                 function base(host) {
                     // ip address
-                    var match = /(^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})(:\d+)?$/.exec(host);
+                    var match = /^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})(:\d+)?$/.exec(host);
                     if (match) return match[1];
                     else {
                         // domain name like someide.ether.camp:8080
