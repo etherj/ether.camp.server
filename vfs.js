@@ -61,29 +61,6 @@ function Vfs(vfs, master, options) {
             readOnly: this.readonly
         })
     };
-
-    this.sandboxJsonRpc = function(req, res, next) {
-        master.remoteApi.call(
-            'ethergit-sandbox',
-            'callJsonRpc',
-            [
-                req.params,
-                sendResponse
-            ]
-        );
-
-        function sendResponse(err, meta) {
-            if (err) {
-                res.json({
-                    id: req.params.id,
-                    jsonrpc: '2.0',
-                    error: err.message
-                });
-            } else {
-                res.json(meta.resp);
-            }
-        }
-    };
     
     this._watchConnection(options.vfsOptions.pid);
 }
@@ -122,10 +99,6 @@ Vfs.prototype.handleEngine = function(req, res, next) {
     }
 };
 
-Vfs.prototype.handleSandbox = function(req, res, next) {
-    this.sandboxJsonRpc(req, res, next);
-};
-
 Vfs.prototype.destroy = function(err) {
     if (err) {
         console.error("VFS error", err);
@@ -155,6 +128,7 @@ Vfs.prototype._watchConnection = function(pid) {
     function onStderr(data) {
         // @todo collab stderr logs
         console.log("VFS stderr [" + pid + "]: " + data);
+        that.logger.log({message: data.toString(), pid: pid});
     }
     
     master.on("disconnect", onError);
