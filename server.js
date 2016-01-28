@@ -294,7 +294,7 @@ function plugin(options, imports, register) {
                     if (match) return match[1];
                     else {
                         // domain name like someide.ether.camp:8080
-                        match = /(\.[\w\-]+\.[\w\-]+)(:\d+)?$/.exec(host);
+                        match = /^[\w\-]+(\.[\w\-\.]+)(:\d+)?$/.exec(host);
                         return match ? match[1] : host;
                     }
                 }
