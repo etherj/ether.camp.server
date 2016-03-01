@@ -151,7 +151,7 @@ function plugin(options, imports, register) {
                 pid: 1
             };
             req.session = {};
-            next();
+            api.authenticate()(req, res, next);
         },
         previewHandler.getProxyUrl(function() {
             return {
@@ -189,6 +189,8 @@ function plugin(options, imports, register) {
         });
         var path = resolve(__dirname + "/../../build/output/latest.tar.gz");
         fs.readlink(path, function(err, target) {
+            if (err) return next(err);
+            
             res.end((target || "").split(".")[0]);
         });
     });
@@ -197,14 +199,23 @@ function plugin(options, imports, register) {
         var filename = req.params.path;
         var path = resolve(__dirname + "/../../build/output/" + filename);
         
-        res.writeHead(200, {"Content-Type": "application/octet-stream"});
         var stream = fs.createReadStream(path);
-        stream.pipe(res);
+        stream.on("error", function(err) {
+            next(err);
+        });
+        stream.on("data", function(data) {
+            if (!res.headersSent)
+                res.writeHead(200, {"Content-Type": "application/octet-stream"});
+                
+            res.write(data);
+        });
+        stream.on("end", function(data) {
+            res.end();
+        });
     });
 
     api.get("/configs/require_config.js", function(req, res, next) {
         var config = res.getOptions().requirejsConfig || {};
-        config.waitSeconds = 240;
         
         res.writeHead(200, {"Content-Type": "application/javascript"});
         res.end("requirejs.config(" + JSON.stringify(config) + ");");
@@ -213,7 +224,7 @@ function plugin(options, imports, register) {
     api.get("/test/all.json", function(req, res, next) {
         var base = __dirname + "/../../";
         var blacklistfile = base + "/test/blacklist.txt";
-        var filefinder = require(base + "/test/filefinder.js");
+        var filefinder = require(base + "/test/lib/filefinder.js");
         filefinder.find(base, "plugins", ".*_test.js", blacklistfile, function(err, result) {
             result.all = result.list.concat(result.blacklist);
             async.filterSeries(result.list, function(file, next) {
@@ -233,6 +244,54 @@ function plugin(options, imports, register) {
     
     api.get("/api.json", {name: "api"}, frontdoor.middleware.describeApi(api));
 
+    api.get("/api/project/:pid/persistent/:apikey", {
+        params: {
+            pid: { type: "number" },
+            apikey: { type: "string" }
+        }
+    }, persistentDataApiMock);
+    api.put("/api/project/:pid/persistent/:apikey", {
+        params: {
+            data: { type: "string", source: "body" },
+            pid: { type: "number" },
+            apikey: { type: "string" },
+        }
+    }, persistentDataApiMock);
+    api.get("/api/user/persistent/:apikey", {
+        params: {
+            apikey: { type: "string" }
+        }
+    }, persistentDataApiMock);
+    api.put("/api/user/persistent/:apikey", {
+        params: {
+            data: { type: "string", source: "body" },
+            apikey: { type: "string" },
+        }
+    }, persistentDataApiMock);
+    
+    function persistentDataApiMock(req, res, next) {
+        var name = (req.params.pid || 0) + "-" + req.params.apikey;
+        var data = req.params.data;
+        console.log(name, data)
+        if (/[^\w+=\-]/.test(name))
+            return next(new Error("Invalid apikey"));
+        var path = join(options.installPath, ".c9", "persistent");
+        var method = req.method.toLowerCase()
+        if (method == "get") {
+            res.writeHead(200, {"Content-Type": "application/octet-stream"});
+            var stream = fs.createReadStream(path + "/" + name);
+            stream.pipe(res);
+        } else if (method == "put") {
+            require("mkdirp")(path, function(e) {
+                fs.writeFile(path + "/" + name, data, "", function(err) {
+                    if (err) return next(err);
+                    res.writeHead(200, {"Content-Type": "application/octet-stream"});
+                    res.end("");
+                });
+            });
+        }
+    }
+    
     api.authenticate = api.authenticate || function() {
         return function(req, response, next) {
             var token = req.params.sessionId || req.params.access_token || req.cookies.sessionId;
@@ -315,6 +374,10 @@ function plugin(options, imports, register) {
         };
     };
     api.getVfsOptions = api.getVfsOptions || function(user, pid) {
+        if (!options._projects) {
+            options._projects = [options.workspaceDir];
+        }
+        //var wd = options._projects[pid] || options._projects[0];
         var wd = options.workspaceDir;
         
         return {

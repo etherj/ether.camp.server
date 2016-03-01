@@ -23,27 +23,8 @@
     <link rel="icon" type="image/x-icon" href="favicon.ico" />
 </head>
 <body>
-    <div id="loadingide">
-        <div id="content" class="loading-progress">
-            <div id="progress-msg">
-                Loading your workspace <span id="dots"></span>
-            </div>
-            <div class="loading-seperator"></div>
-            <div class="loading-msg">It will be just as you left it</div>
-            
-            <div class="ui-progress-bar ui-container" id="progress_bar">
-                <div class="ui-progress" style="width: 7%;">
-                  <span class="ui-label" style="display:none;"></span>
-                </div>
-            </div>
-        </div>
-        <div class="footer">
-            <a href="https://docs.c9.io">Documentation</a> | 
-            <a href="http://status.c9.io">Server Status</a> | 
-            <a href="http://support.c9.io">Support</a>
-        </div>
-    </div>
-
+  <% include ../../c9.ide.server/views/load-screen.ejs %>
+  
     <script type="text/javascript">
         var dots = document.getElementById("dots");
         var cnt  = 0;
@@ -131,15 +112,27 @@
 
                 // For Development only
                 function done(){
-                    clearInterval(window.dotsAnim); // stop the dots animation
-                    var loader = document.getElementById("loadingide");
-                    loader.parentNode.removeChild(loader);
-
-                    app.services.c9.ready();
-                    app.services.c9.totalLoadTime = Date.now() - start;
+                    var vfs = app.services.vfs;
+                    var c9 = app.services.c9;
+                    
+                    c9.ready();
+                    c9.totalLoadTime = Date.now() - start;
 
                     console.warn("Total Load Time: ", Date.now() - start);
+
+                    if (window.hideLoader) {
+                        if (vfs.connected)
+                            window.hideLoader();
+                        else {
+                            vfs.once("connect", function(){
+                                window.hideLoader();
+                            });
+                        }
+                    }
                 }
+            }, function loadError(mod) {
+                if (mod.id === "plugins/c9.ide.clipboard/html5")
+                    return alert("Unable to load html5.js.\n\nThis may be caused by a false positive in your virus scanner. Please try reloading with ?packed=1 added to the URL.");
             });
         });
     </script>
