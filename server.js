@@ -103,6 +103,7 @@ function plugin(options, imports, register) {
             configType = "devel";
 
         var configName = getConfigName(configType, options);
+        console.log('config name: ' + configName);
 
         var collab = options.collab && req.params.collab !== 0 && req.params.nocollab != 1;
 

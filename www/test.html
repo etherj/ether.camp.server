@@ -16,7 +16,7 @@
     <div id="mocha"></div>
     <div id='jserror' width='100%' height='20px' style='font: 10px \"courier new\"; color: red; display: none;'></div>
 
-    <script src="require.js"></script>
+    <script src="mini_require.js"></script>
     <script src="/configs/require_config.js"></script>
     <script src="lib/mocha/mocha.js"></script>
     <script>
@@ -108,15 +108,26 @@
             
             var tests = [];
             var stats = this.stats;
+            mocha.lastReport = null;
             mocha.report = { stats: stats, tests: tests };
+            mocha.getReport = function() {
+                return {
+                    stats: JSON.parse(JSON.stringify(stats)),
+                    tests: tests.map(clean)
+                };
+            };
         
             runner.on('test end', function(test) {
                 stats.percent = stats.tests / runner.total * 100 | 0;
-                tests.push(clean(test));
+                tests.push(test);
             });
 
             runner.on('end', function() {
-                console.log(JSON.stringify(mocha.report, null, 4));
+                // tests might generate errors after they finished running
+                // e.g. using on instead of once can call done second time during app unload
+                // so we save the report at the time when test runner ended.
+                mocha.lastReport = mocha.getReport();
+                console.log(mocha.report);
             });
             
             function parseError(err) {
@@ -156,7 +167,7 @@
         require([path]);
     }
     // allow running some tests in both client and server
-    ["amd-loader", "../../test/setup_paths"].forEach(defineEmpty);
+    ["amd-loader", "test/setup_paths"].forEach(defineEmpty);
     // require.config({paths: {chai: "lib/chai/chai"}});
     
     
@@ -173,7 +184,13 @@
     });
 
     
-    var deps = ["text!/test/all.json", "lib/architect/architect", "lib/chai/chai", "test.js"];
+    var deps = [
+        "text!/test/all.json",
+        "lib/architect/architect",
+        "lib/chai/chai",
+        "test",
+        "plugins/c9.ide.ui/lib_less1.5"
+    ];
     if (options.ui === "none")
         deps.shift();
 
@@ -226,10 +243,12 @@
                 running = false;
                 lastDone && lastDone();
             }
-            running ? done() : mocha.run(done);
-            running = true;
+            if (!running) {
+                running = true;
+                mocha.run(done);
+            }
         };
-        onload.remain = onload.remain == "1";
+        onload.remain = options.remain == "1";
         
         mocha.timeout(10000);
         
@@ -244,7 +263,7 @@
         }
         
         function getReport() {
-            return mocha.report;
+            return mocha.lastReport;
         }
         
         function safeDisconnect(cb) {
@@ -285,19 +304,30 @@
             
             c9Test.last = test;
             mocha.suite.suites.length = 0;
-            var app = window.app;
-            if (app && app.services && app.services.ext)
-                app.services.ext.unloadAllPlugins();
+            function unloadApp() {
+                var app = window.app;
+                window.app = null;
+                try {
+                    if (app && app.services && app.services.ext)
+                        app.services.ext.unloadAllPlugins();
+                } catch(e) {
+                    callback && callback(e, getReport());
+                    return e;
+                }
+            }
+            
+            if (unloadApp()) return;
             
             setupDom(test);
             cleanupRequireModules();
             lastDone = function(err, res) {
                 lastDone = null;
+                if (!onload.remain && unloadApp()) return;
                 callback && callback(err, res || getReport());
             };
             
             safeDisconnect(function() {
-                app = null;
+                window.app = null;
                 if (typeof test == "function") {
                     test();
                     if (!running) onload();
@@ -347,14 +377,14 @@
         }
         
         /* global requirejs require: true*/
-        var defaultModules = Object.keys(requirejs.s.contexts._.defined).filter(function(x) {
+        var defaultModules = Object.keys(define.modules).filter(function(x) {
             return !/text!/.test(x);
         });
         function cleanupRequireModules() {
-            Object.keys(require.s.contexts._.defined).forEach(function(x) {
+            Object.keys(define.modules).forEach(function(x) {
                 if (/text!/.test(x) || defaultModules.indexOf(x) != -1)
                     return;
-                if (/lib\/ace|lib\/treehugger|\/ctags\/ctags$/.test(x) && !/_test/.test(x))
+                if (/^ace|^treehugger|\/ctags\/ctags$/.test(x) && !/_test/.test(x))
                     return;
                     
                 require.undef(x);
@@ -363,8 +393,18 @@
         if (require == requirejs) {
             require = function(a, b, c) {
                 if (!c && Array.isArray(a))
-                    c = function(err) { lastDone(err.message); };
-                return requirejs(a, b, c);
+                    c = function(err) { 
+                        lastDone && lastDone(err.message); 
+                    };
+                // workaround for sync minirequire behaviour
+                var bt = b && function() {
+                    var args = [].slice.call(arguments);
+                    var self = this;
+                    setTimeout(function() {
+                        b.apply(self, args);
+                    });
+                };
+                return requirejs(a, bt, c);
             };
             Object.keys(requirejs).forEach(function(x) {
                 if (!(x in require)) {

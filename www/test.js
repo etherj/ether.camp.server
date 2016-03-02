@@ -4,9 +4,11 @@ require([
     "lib/chai/chai", 
     "text!plugins/c9.ide.layout.classic/skins.xml", 
     "events",
-    "text!/static/standalone/skin/default/dark.css"
-], function (chai, skin, events, theme) {
+    "text!/static/standalone/skin/default/dark.css",
+    "lib/architect/architect"
+], function (chai, skin, events, theme, architect) {
     "use strict";
+    chai.Assertion.includeStack = true; // enable stack trace in errors
     var expect = chai.expect;
     var EventEmitter = events.EventEmitter;
 
@@ -106,6 +108,10 @@ require([
                 x.check = function(){};
                 return x;
             })(),
+            "watcher.gui": (function(){
+                var x = new EventEmitter();
+                return x;
+            })(),
             save: (function(){
                 var x = new EventEmitter();
                 x.saveAll = function(c){ c(); };
@@ -142,6 +148,10 @@ require([
                 obj.watch = function(){};
                 return obj;
             })(),
+            "fs.cache": (function(){
+                var obj = new EventEmitter();
+                return obj;
+            })(),
             tooltip: {
                 add: function(){}
             },
@@ -156,7 +166,7 @@ require([
                 return prefs;
             })(),
             analytics: {
-                addTrait: function() {}
+                updateTraits: function() {}
             },
             commands: (function(){
                 var commands = {};
@@ -326,6 +336,13 @@ require([
                 
                 return plugin;
             },
+            Dialog: function(developer, deps, options) {
+                var plugin = new imports.Plugin(developer, deps);
+                plugin.freezePublicAPI.baseclass();
+                plugin.freezePublicAPI({});
+                
+                return plugin;
+            },
             tree: (function(){
                 var tree = new EventEmitter();
                 tree.createFolder = function(){};
@@ -388,6 +405,11 @@ require([
                     return callback ? callback(null, ws) : ws;
                 }
             },
+            "preferences.experimental": {
+                addExperiment: function() {
+                    return false;
+                }
+            },
             "ace.gotoline": {},
             "ace.stripws": {
                 disable: function(){},
@@ -400,9 +422,13 @@ require([
             "dialog.fileremove": {show: function() {}},
             "dialog.fileoverwrite": {show: function() {}},
             "dialog.error": {
-                showError: function(msg) {
-                    console.warn(msg);
-                }
+                showError: function(msg) { console.warn(msg); },
+                show: function(msg) { console.warn(msg); },
+                hide: function(msg) { },
+            },
+            "dialog.info": {
+                show: function(msg) { console.log(msg); },
+                hide: function(msg) { },
             },
             "installer": { createSession : function(){}, reinstall: function(){}, isInstalled: function(){ return true; } },
             "run.gui": { getElement : function(){} },
@@ -418,6 +444,15 @@ require([
                 log: function() {},
                 increment: function() {}
             },
+            MountTab: function(developer, deps, options) {
+                var plugin = new imports.Plugin(developer, deps);
+                plugin.freezePublicAPI.baseclass();
+                plugin.freezePublicAPI({
+                });
+                
+                return plugin;
+            },
+            mount: {},
             error_handler: {
                 log: function() {},
                 reportError: function(){}
@@ -472,37 +507,66 @@ require([
                 var x = new EventEmitter();
                 return x;
             })(),
+            "scm": (function(){
+                var x = new EventEmitter();
+                x.register = function(){};
+                x.unregister = function(){};
+                return x;
+            })(),
+            "immediate": (function(){
+                var x = new EventEmitter();
+                x.register = function(){};
+                x.unregister = function(){};
+                return x;
+            })(),
+            "c9.analytics": (function(){
+                var x = new EventEmitter();
+                x.register = function(){};
+                x.unregister = function(){};
+                return x;
+            })(),
         });
     };
     
-    expect.setupArchitectTest = function(config, architect, options) {
+    expect.setupArchitectTest = function(config, _, options) {
         if (options && options.mockPlugins) {
             config.push({
-                consumes: [],
+                consumes: options.existingPlugins || [],
                 provides: options.mockPlugins,
                 setup: expect.html.mocked
             });
         }
         architect.resolveConfig(config, function(err, config) {
-            /*global describe it before after = */
+            /*global describe it before after */
             if (err) throw err;
-            var app = window.app = architect.createApp(config, function(err, app) {
+            var app = architect.createApp(config, function(err, app) {
                 if (err && err.unresolved && !config.unresolved) {
-                    console.warn("Adding mock services for " + err.unresolved);
-                    config.unresolved = err.unresolved;
-                    expect.setupArchitectTest(config, architect, {
-                        mockPlugins: config.unresolved
+                    expect.html.mocked({}, {}, function(a, mockServices) { 
+                        err.missingMock = err.unresolved.filter(function(x) {
+                            return !mockServices[x];
+                        });
+                        config.unresolved = err.unresolved.filter(function(x) {
+                            return mockServices[x];
+                        });
                     });
-                    return;
+                    if (err.missingMock.length) {
+                        console.error("Missing mock services for " + err.missingMock);
+                    } else {
+                        console.warn("Adding mock services for " + err.unresolved);
+                        return expect.setupArchitectTest(config, architect, {
+                            mockPlugins: config.unresolved,
+                            existingPlugins: err.resolved
+                        });
+                    }
                 }
-                
-                describe('app', function() {
-                    it('should load test app', function(done) {
-                        expect(err).not.ok;
-                        done();
+                if (typeof describe == "function") {
+                    describe('app', function() {
+                        it('should load test app', function(done) {
+                            expect(err).not.ok;
+                            done();
+                        });
                     });
-                });
-            
+                }
                 onload && onload();
                 
             });
@@ -514,7 +578,9 @@ require([
                 app.rerun = function() {
                     expect.setupArchitectTest(config, architect);
                 };
+                window.app = app;
             }
+            return app;
         });
     };
         

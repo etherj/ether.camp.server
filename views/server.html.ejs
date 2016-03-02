@@ -23,15 +23,7 @@
     <link rel="icon" type="image/x-icon" href="favicon.ico" />
 </head>
 <body>
-  <% include ../../c9.ide.server/views/load-screen.ejs %>
-  
-    <script type="text/javascript">
-        var dots = document.getElementById("dots");
-        var cnt  = 0;
-        window.dotsAnim = setInterval(function () {
-            dots.textContent = "...".slice(0, (++cnt)%4);
-        }, 500);
-    </script>
+    <% include ../../c9.ide.server/views/load-screen.ejs %>
 
     <% if (packed) { %>
         <script src="/static/<%=version%>/config/<%=configName%>.js"></script>
