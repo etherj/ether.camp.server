@@ -423,6 +423,9 @@ function getConfigName(requested, options) {
     else if (options.workspaceType) {
         name = "workspace-" + options.workspaceType;
     }
+    else if (options.options.client_config && options.readonly) {
+        name = options.options.client_config + "-ro";
+   }
     else if (options.options.client_config) {
         // pick up client config from settings, if present
         name = options.options.client_config;
