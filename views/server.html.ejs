@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Cloud9</title>
+    <title>Ethereum Studio</title>
     <script>
         // For node-webkit
         var nRequire = window.require; 
@@ -21,7 +21,7 @@
     <link rel="icon" type="image/x-icon" href="favicon.ico" />
 </head>
 <body>
-    <% include ../../c9.ide.server/views/load-screen.ejs %>
+    <% include load-screen.ejs %>
 
     <% if (packed) { %>
         <script src="/static/<%=version%>/config/<%=configName%>.js"></script>
