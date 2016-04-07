@@ -321,6 +321,12 @@ function plugin(options, imports, register) {
                         } else {
                             showError('We got an error: ' + body);
                         }
+                    } else if (res.statusCode == 403) {
+                      response.render(
+                        __dirname + "/views/access_error.html.ejs",
+                        { dashboardUrl: options.options.dashboardUrl },
+                        next
+                      );
                     } else if (res.statusCode < 200 || res.statusCode >= 300) {
                         showError('We got an error: ' + body);
                     } else {
