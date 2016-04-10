@@ -128,10 +128,15 @@ function plugin(options, imports, register) {
             user.name = req.user.name;
             user.email = req.user.email;
             user.fullname = req.user.fullname;
+            user.access = req.user.access;
 
+            var project = opts.options.extendOptions.project;
+            project.nonpublic = req.project.nonpublic;
+            
             opts.readonly = opts.options.readonly = opts.options.extendOptions.readonly = req.user.readonly;
             
             opts.options.debug = req.params.debug !== undefined;
+
             res.setHeader("Cache-Control", "no-cache, no-store");
             res.render(__dirname + "/views/server.html.ejs", {
                 architectConfig: getConfig(configType, opts),
@@ -322,11 +327,11 @@ function plugin(options, imports, register) {
                             showError('We got an error: ' + body);
                         }
                     } else if (res.statusCode == 403) {
-                      response.render(
-                        __dirname + "/views/access_error.html.ejs",
-                        { dashboardUrl: options.options.dashboardUrl },
-                        next
-                      );
+                        response.render(
+                            __dirname + "/views/access_error.html.ejs",
+                            { dashboardUrl: options.options.dashboardUrl },
+                            next
+                        );
                     } else if (res.statusCode < 200 || res.statusCode >= 300) {
                         showError('We got an error: ' + body);
                     } else {
@@ -340,8 +345,12 @@ function plugin(options, imports, register) {
                             name: details.name,
                             email: details.email,
                             fullname: details.fullname,
-                            readonly: details.readonly,
+                            readonly: details.access == 'RO',
+                            access: details.access,
                             token: details.token
+                        };
+                        req.project = {
+                            nonpublic: details.project.nonpublic
                         };
                         if (req.cookies.sessionId != details.token) {
                             response.setHeader(
