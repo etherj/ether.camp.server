@@ -13,6 +13,7 @@ module.exports = plugin;
     
 var fs = require("fs");
 var http = require("http");
+var https = require("https");
 var assert = require("assert");
 var async = require("async");
 var join = require("path").join;
@@ -306,7 +307,9 @@ function plugin(options, imports, register) {
                     "projectId=" + config.extendOptions.project.id;
             if (token) url += "&sessionId=" + token;
 
-            http.get(url, function(res) {
+            var httpOrHttps = url.indexOf('https') == 0 ? https : http;
+
+            httpOrHttps.get(url, function(res) {
                 var body = "";
                 res.on("data", function(chunk) {
                     body += chunk.toString();
