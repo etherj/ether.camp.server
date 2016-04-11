@@ -327,11 +327,6 @@ function plugin(options, imports, register) {
                             showError('We got an error: ' + body);
                         }
                     } else if (res.statusCode == 403) {
-                        response.render(
-                            __dirname + "/views/access_error.html.ejs",
-                            { dashboardUrl: options.options.dashboardUrl },
-                            next
-                        );
                     } else if (res.statusCode < 200 || res.statusCode >= 300) {
                         showError('We got an error: ' + body);
                     } else {
@@ -340,26 +335,39 @@ function plugin(options, imports, register) {
                         } catch (e) {
                             return showError(e.message);
                         }
-                        req.user = {
-                            id: details.id,
-                            name: details.name,
-                            email: details.email,
-                            fullname: details.fullname,
-                            readonly: details.access == 'RO',
-                            access: details.access,
-                            token: details.token
-                        };
-                        req.project = {
-                            nonpublic: details.project.nonpublic
-                        };
-                        if (req.cookies.sessionId != details.token) {
-                            response.setHeader(
-                                'Set-Cookie',
-                                'sessionId=' +
-                                    details.token + '; path=/; domain=' + base(req.headers.host)
+
+                        if (details.project.nonpublic && details.access == null) {
+                            response.render(
+                                __dirname + "/views/access_error.html.ejs",
+                                {
+                                    dashboardUrl: options.options.dashboardUrl,
+                                    loggedIn: details.id < 1000000
+                                },
+                                next
                             );
+                        } else {
+                            if (details.access == null) details.access = 'RO';
+                            req.user = {
+                                id: details.id,
+                                name: details.name,
+                                email: details.email,
+                                fullname: details.fullname,
+                                readonly: details.access == 'RO',
+                                access: details.access,
+                                token: details.token
+                            };
+                            req.project = {
+                                nonpublic: details.project.nonpublic
+                            };
+                            if (req.cookies.sessionId != details.token) {
+                                response.setHeader(
+                                    'Set-Cookie',
+                                    'sessionId=' +
+                                        details.token + '; path=/; domain=' + base(req.headers.host)
+                                );
+                            }
+                            next();
                         }
-                        next();
                     }
                 });
 
