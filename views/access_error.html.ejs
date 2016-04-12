@@ -12,6 +12,7 @@
       body {
       background-color: rgb(34, 34, 34);
       color: white;
+      padding-top: 30px;
       }
       a {
       color: #B9CA4A;
@@ -26,14 +27,13 @@
   <body>
     <div class="container bs-root">
       <div class="row">
-        <h1>403</h1>
-        <h2>Sorry, you do not have access to this private project</h2>
+        <h2>You do not have access to this private project</h2>
       </div>
       
       <% if (!loggedIn) { %>
       <div class="row">
         <p>To see the project you have to be its member.</p> 
-        <p id="error" class="text-warning"></p>
+        <p id="error" class="text-da"></p>
         <form id="signin" class="form-horizontal">
           <div class="form-group">
             <label for="inputEmail3" class="col-sm-1 control-label">Name</label>
