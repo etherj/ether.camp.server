@@ -343,6 +343,7 @@ function plugin(options, imports, register) {
                             response.render(
                                 __dirname + "/views/access_error.html.ejs",
                                 {
+                                    apiUrl: config.apiUrl,
                                     dashboardUrl: options.options.dashboardUrl,
                                     loggedIn: details.id < 1000000
                                 },

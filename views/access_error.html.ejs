@@ -1,25 +1,110 @@
 <!doctype html>
-<html>
+<html lang="en">
   <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Ethereum Studio</title>
+    <link rel="stylesheet" type="text/css" href="/static/plugins/ethergit.libs/bootstrap/css/bootstrap.css">
+    <link rel="stylesheet" type="text/css" href="/static/plugins/ethergit.libs/bootstrap/css/bootstrap-theme.css">
+
     <style>
       body {
       background-color: rgb(34, 34, 34);
       color: white;
-      padding: 30px;
       }
       a {
       color: #B9CA4A;
       }
     </style>
+
+    <script>
+      apiUrl = "<%= apiUrl %>";
+      
+    </script>
   </head>
   <body>
-    <h1>403</h1>
-    <h2>Sorry, you do not have access to this private project</h2>
+    <div class="container bs-root">
+      <div class="row">
+        <h1>403</h1>
+        <h2>Sorry, you do not have access to this private project</h2>
+      </div>
+      
+      <% if (!loggedIn) { %>
+      <div class="row">
+        <p>To see the project you have to be its member.</p> 
+        <p id="error" class="text-warning"></p>
+        <form id="signin" class="form-horizontal">
+          <div class="form-group">
+            <label for="inputEmail3" class="col-sm-1 control-label">Name</label>
+            <div class="col-sm-4">
+              <input id="name" type="text" class="form-control" id="inputEmail3" placeholder="Name">
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="inputPassword3" class="col-sm-1 control-label">Password</label>
+            <div class="col-sm-4">
+              <input id="password" type="password" class="form-control" id="inputPassword3" placeholder="Password">
+            </div>
+          </div>
+          <div class="form-group">
+            <div class="col-sm-offset-1 col-sm-4">
+              <button type="submit" class="btn btn-success">Sign in</button>
+            </div>
+          </div>
+        </form>
+      </div>
+      <% } %>
     
-    <% if (!loggedIn && dashboardUrl != '/') { %>
-      <p>If you want to sign in to your account, you can do it at <a href="<%= dashboardUrl %>">dashboard</a>.</p>
-    <% } %>
-    <p>Ask us anything in <a target="_blank" href="http://www.ether.camp">our slack</a>.</p>
+      <div class="row">
+        <p>Ask us anything in <a target="_blank" href="http://www.ether.camp">our slack</a>.</p>
+      </div>
+    </div>
+      
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+    <script src="/static/plugins/ethergit.libs/bootstrap/js/bootstrap.min.js"></script>
+    <script type="text/javascript">
+      $(function() {
+
+      $('#signin').submit(function(e) {
+        e.preventDefault();
+
+        var $name = $('#name');
+        var $password = $('#password');
+        var $error = $('#error');
+      
+        $.ajax({
+          type: 'POST',
+          url: apiUrl + '/login',
+          data: JSON.stringify({
+            name: $name.val(),
+            password: $password.val()
+          }),
+          dataType: 'json',
+          contentType: 'application/json'
+        })
+          .done(function(session) {
+            document.cookie = 'sessionId=' + session.id + '; path=/; domain=' + base(window.location.hostname);
+            window.location.reload();
+          })
+          .fail(function(xhr) {
+            if (xhr.readyState == 4) $error.text('Name or password is incorrect');
+            else $error.text('Connection refused');
+          });
+
+        function base(host) {
+          // ip address
+          var match = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.exec(host);
+          if (match) return match[0];
+          else {
+            // domain name like someide.ether.camp
+            match = /^[\w\-\.]+(\.[\w\-\.]+\.\w+)$/.exec(host);
+            return match ? match[1] : host;
+          }
+        }
+      });
+      
+      });
+    </script>
   </body>
 </html>
