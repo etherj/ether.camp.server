@@ -89,7 +89,7 @@
           })
           .fail(function(xhr) {
             if (xhr.readyState == 4) $error.text('Name or password is incorrect');
-            else $error.text('Connection refused');
+            else $error.text('Authentication server is not available. Please, try to sign in again in a minute.');
           });
 
         function base(host) {
