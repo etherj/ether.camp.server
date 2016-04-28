@@ -300,7 +300,8 @@ function plugin(options, imports, register) {
     }
     
     api.authenticate = api.authenticate || function() {
-        return function(req, response, next) {
+      return function(req, response, next) {
+        console.log('authenticate()');
             var token = req.params.sessionId || req.params.access_token || req.cookies.sessionId;
             var config = options.options;
             var url = config.apiUrl + "/user-details?" +
@@ -319,24 +320,24 @@ function plugin(options, imports, register) {
                         try {
                             var details = JSON.parse(body);
                         } catch (e) {
-                            return showError(e.message);
+                            return showError('We got 404 error during authentication', true);
                         }
-                        if (details.message == 'No such project') {
+                        if (/^Project with id \d+ not found$/.test(details.message)) {
                             showError(
                                 'Specified project does not exist. Probably, the url is wrong. ' +
-                                    'If you are sure it is correct, please, send us a message.'
+                                    'If you are sure it is correct, please, send us a message.',
+                                false
                             );
                         } else {
-                            showError('We got an error: ' + body);
+                            showError('We got 404 error during authentication: ' + body, true);
                         }
-                    } else if (res.statusCode == 403) {
                     } else if (res.statusCode < 200 || res.statusCode >= 300) {
-                        showError('We got an error: ' + body);
+                        showError('We got an error during authentication: ' + body, true);
                     } else {
                         try {
                             details = JSON.parse(body);
                         } catch (e) {
-                            return showError(e.message);
+                            return showError('We got an error during authentication: ' + e.message, false);
                         }
 
                         if (details.project.nonpublic && details.access == null) {
@@ -386,13 +387,18 @@ function plugin(options, imports, register) {
                     }
                 }
             }).on("error", function(e) {
-                showError(e.message);
+                showError(e.message, true);
             });
 
-            function showError(err) {
-                console.error(err);
-                response.writeHead(500);
-                response.end(err);
+            function showError(err, temp) {
+                response.render(
+                    __dirname + "/views/error.html.ejs",
+                    {
+                        temp: temp,
+                        message: err
+                    },
+                    next
+                );
             }
         };
     };
